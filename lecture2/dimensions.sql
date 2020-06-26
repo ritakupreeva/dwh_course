@@ -273,8 +273,7 @@ SELECT * FROM (
 	WITH genres as (
 		SELECT DISTINCT m2g.music_id, first_value(g.name) over (partition by music_id order by genre_id) as genre_id
 		FROM nds.music_to_genres m2g
-		JOIN nds.genres g on g.id = m2g.genre_id
-	)
+		JOIN nds.genres g on g.id = m2g.genre_id)
 	SELECT
 		m.id :: varchar as code,
 		m.album as name,
@@ -297,10 +296,15 @@ SELECT * FROM (
 	
 	UNION ALL
 	
+	(
+	WITH authors AS (
+		SELECT DISTINCT bta.book_id, first_value(ba."name") OVER (PARTITION BY bta.book_id ORDER BY bta.author_id) AS author_name
+		FROM nds.book_to_author bta
+		JOIN nds.book_author ba ON ba.id = bta.author_id)
 	SELECT
 		b.id :: varchar AS code,
 		b.nomenclature AS name,
-		coalesce(ba.name, 'Неизвестно') as artist,
+		coalesce(a.author_name, 'Неизвестно') as artist,
 		'Книги' as product_type,
 		coalesce(bc.name, 'Неизвестно') as product_category,
 		b.price AS unit_price,
@@ -314,16 +318,21 @@ SELECT * FROM (
 		b.end_ts as expire_ts,
 		b.is_current
 	FROM nds.book b
-	LEFT JOIN nds.book_to_author bta ON bta.book_id = b.id
-	LEFT JOIN nds.book_author ba ON ba.id = bta.book_id
+	LEFT JOIN authors a ON a.book_id = b.id
 	LEFT JOIN nds.book_category bc ON bc.id = b.category_id
+	)
 	
 	UNION ALL
 	
+	(
+	WITH directors AS (
+		SELECT DISTINCT ftd.film_id, first_value(fd."name") OVER (PARTITION BY ftd.film_id ORDER BY ftd.director_id) AS director_name
+		FROM nds.films_to_director ftd
+		JOIN nds.films_director fd ON fd.id = ftd.director_id)
 	SELECT
 		f.id :: varchar AS code,
 		f.title AS name,
-		coalesce(fd.name, 'Неизвестно') AS artist,
+		coalesce(d.director_name, 'Неизвестно') AS artist,
 		'Фильмы' as product_type,
 		coalesce(fg.name, 'Неизвестно') as product_category,
 		f.price AS unit_price,
@@ -337,7 +346,7 @@ SELECT * FROM (
 		f.end_ts as expire_ts,
 		f.is_current
 	FROM nds.films f
-	LEFT JOIN nds.films_to_director ftd ON ftd.film_id = f.id
-	LEFT JOIN nds.films_director fd ON fd.id = ftd.director_id
+	LEFT JOIN directors d ON d.film_id = f.id
 	LEFT JOIN nds.films_genre fg ON fg.id = f.genre_id
+	)
 ) s;
